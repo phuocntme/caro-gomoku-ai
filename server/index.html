@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game Caro Siêu Cấp - Neon Edition</title>
+    <link rel="stylesheet" href="style.css?v=2">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js" data-cfasync="false"></script>
+    <script src="/socket.io/socket.io.js" data-cfasync="false"></script>
+    <script data-cfasync="false">
+        if (typeof io === 'undefined') {
+            document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" data-cfasync="false"><\\/script>');
+        }
+    </script>
+</head>
+<body>
+    <!-- Canvas cho hiệu ứng pháo hoa khi chiến thắng -->
+    <canvas id="fireworksCanvas"></canvas>
+
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <h1>CARO <span class="neon-text">NEON</span></h1>
+                <p class="subtitle">Trận chiến Caro Đỉnh Cao</p>
+            </div>
+            
+            <div class="control-panel">
+                <button id="soundToggle" class="control-btn" title="Bật/Tắt âm thanh">
+                    <!-- Icon Loa Bật (Mặc định) -->
+                    <svg id="soundOnIcon" viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>
+                    </svg>
+                    <!-- Icon Loa Tắt (Ẩn) -->
+                    <svg id="soundOffIcon" viewBox="0 0 24 24" width="20" height="20" style="display: none;">
+                        <path fill="currentColor" d="M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.44 16.63,19.79 17.7,18.9L20.73,21.9L22,20.63L4.27,3M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.48,12.43 16.5,12.22 16.5,12Z"/>
+                    </svg>
+                </button>
+                <button id="timerToggle" class="control-btn active" title="Bật/Tắt đếm thời gian">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
+                    </svg>
+                </button>
+                <button id="resetScoresBtn" class="control-btn" title="Đặt lại điểm số">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <section class="game-mode" aria-label="Chế độ chơi">
+            <button id="oneVsOneBtn" class="mode-btn active" type="button">1 VS 1</button>
+            <button id="vsAiBtn" class="mode-btn" type="button">VS AI</button>
+            <button id="onlineBtn" class="mode-btn" type="button">ONLINE</button>
+            <p id="aiStatus" class="ai-status" aria-live="polite"></p>
+        </section>
+
+        <!-- Bảng điểm -->
+        <section class="scoreboard">
+            <div class="score-card player-x-card active-card">
+                <div class="player-tag" id="playerXLabel">PLAYER X</div>
+                <div class="score-num" id="scoreX">0</div>
+            </div>
+            <div class="score-card player-o-card">
+                <div class="player-tag" id="playerOLabel">PLAYER O</div>
+                <div class="score-num" id="scoreO">0</div>
+            </div>
+        </section>
+
+        <!-- Trạng thái lượt đi & Bộ đếm thời gian -->
+        <section class="turn-section">
+            <div class="turn-indicator-wrapper">
+                <div class="turn-indicator" id="turnIndicator">
+                    Lượt đi: <span class="player-x">X</span>
+                </div>
+            </div>
+            <div class="timer-container" id="timerContainer">
+                <div class="timer-bar" id="timerBar"></div>
+            </div>
+        </section>
+
+        <!-- Bàn cờ -->
+        <main>
+            <div class="board-container">
+                <div class="board" id="board"></div>
+            </div>
+        </main>
+
+        <!-- Điều khiển ván chơi -->
+        <footer>
+            <button id="undoBtn" class="action-btn secondary-btn" title="Quay lại nước đi trước">
+                <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px;">
+                    <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+                </svg>
+                <span>QUAY LẠI</span>
+            </button>
+            <button id="resetBtn" class="action-btn">
+                <span>VÁN MỚI</span>
+                <svg viewBox="0 0 24 24" width="18" height="18" style="margin-left: 8px;">
+                    <path fill="currentColor" d="M19,12T19,12A7,7 0 0,0 12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12M12,3A9,9 0 0,1 21,12A9,9 0 0,1 12,21A9,9 0 0,1 3,12A9,9 0 0,1 12,3M12,7V12L15,15" />
+                </svg>
+            </button>
+        </footer>
+
+        <!-- Modal hiển thị kết quả -->
+        <div id="winnerModal" class="modal">
+            <div class="modal-content glassmorphism">
+                <div class="modal-glowing-effect"></div>
+                <div class="trophy-animation">
+                    <span class="trophy">🏆</span>
+                </div>
+                <h2 id="winnerText" class="winner-title">PLAYER X THẮNG!</h2>
+                <p class="modal-subtitle">Một chiến thắng thuyết phục với chiến thuật đỉnh cao!</p>
+                <button id="modalResetBtn" class="reset-btn neon-btn">Chơi Lại</button>
+            </div>
+        </div>
+
+        <!-- Modal Tạo / Vào Phòng Online -->
+        <div id="roomModal" class="modal">
+            <div class="modal-content glassmorphism room-modal-content">
+                <div class="modal-glowing-effect"></div>
+                <button id="closeRoomModalBtn" class="room-close-btn" title="Đóng">&times;</button>
+                <h2 class="winner-title neon-text" style="margin-top: 5px;">PHÒNG ONLINE</h2>
+                <p class="modal-subtitle">Tạo phòng để gửi mã cho bạn bè hoặc nhập mã phòng sẵn có</p>
+                
+                <div id="roomInitialArea" class="room-actions">
+                    <button id="createRoomBtn" class="action-btn neon-btn" type="button" style="width: 100%;">
+                        <span>TẠO PHÒNG MỚI</span>
+                    </button>
+                    
+                    <div class="room-divider"><span>HOẶC</span></div>
+                    
+                    <div class="join-room-box">
+                        <input type="text" id="roomCodeInput" maxlength="6" placeholder="NHẬP MÃ 6 KÝ TỰ" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+                        <button id="joinRoomBtn" class="action-btn" type="button">VÀO PHÒNG</button>
+                    </div>
+                </div>
+
+                <!-- Khu vực trạng thái khi đã tạo phòng thành công -->
+                <div id="roomStatusArea" class="room-status-area" style="display: none;">
+                    <p class="room-info-label">MÃ PHÒNG CỦA BẠN:</p>
+                    <div class="room-code-display">
+                        <span id="displayRoomCode">------</span>
+                        <button id="copyRoomCodeBtn" class="copy-code-btn" title="Sao chép mã">SAO CHÉP</button>
+                    </div>
+                    <p id="roomStatusMsg" class="room-status-msg">Đang chờ đối thủ vào phòng...</p>
+                    <div class="room-spinner"></div>
+                </div>
+
+                <div id="roomErrorMsg" class="room-error-msg" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=ai-model-v2-3" data-cfasync="false"></script>
+</body>
+</html>

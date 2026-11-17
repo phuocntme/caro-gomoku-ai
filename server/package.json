@@ -1,0 +1,16 @@
+{
+  "name": "caro-game-online",
+  "version": "2.0.0",
+  "description": "Caro Neon with AlphaZero AI and Real-time Online Multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}
