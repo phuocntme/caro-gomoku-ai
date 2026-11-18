@@ -1,49 +1,70 @@
-# ♟️ Caro/Gomoku AI — AlphaZero-style Self-Play Engine
+# ♟️ Caro / Gomoku AI
 
-An AlphaZero-inspired **Caro (Gomoku, 15×15, Vietnamese rules)** engine: a fully-convolutional **SE-ResNet policy-value network** trained by **self-play with vectorized Monte Carlo Tree Search**, soft tactical priors, and an opponent pool.
+AlphaZero-style Caro (15×15) with a convolutional SE-ResNet policy-value model, vectorized Monte Carlo Tree Search, and a browser-playable AI opponent.
 
-## Why this project
+## Play online
 
-Caro is solved-ish territory for minimax at high depth — the interesting question is whether **pure MCTS + learned value** can produce strong play without hand-crafted evaluation, the way AlphaZero did for Go. This project is a full, honest attempt: architecture, self-play curriculum, training ops, evaluation harness, and export to a deployable format.
+[**Open the GitHub Pages demo →**](https://phuocntme.github.io/caro-gomoku-ai/)
 
-## Architecture (V2)
+The Pages demo supports local **1-vs-1** and **VS AI**. Online multiplayer is disabled there because GitHub Pages only hosts static files; it cannot run the Socket.IO server.
 
-- **Board encoding**: 4-channel input planes (my stones, opponent stones, +2 state channels)
-- **Network**: fully-convolutional **SE-ResNet** policy-value head (squeeze-and-excitation blocks)
-- **Search**: **vectorized MCTS** with PUCT, **soft tactical priors** (4-level heuristics: block open-threes, create open-fours) blended into the root policy
-- **Training**: self-play with an **opponent pool** (previous checkpoints) to avoid policy collapse; checkpoint resume from Google Colab or local
-- **Export**: `torch.onnx` → ONNX for lightweight inference
-- **Evaluation**: `bench_game.py` — head-to-head benchmark harness against heuristics/random
+## Run the browser demo locally
 
-## Repository
+Requirements: Python 3 (for a static file server) and an internet connection for ONNX Runtime Web assets loaded from CDN.
 
-```
-notebooks/Caro.ipynb               — full pipeline: data gen → training → self-play → eval → ONNX export
-bench_game.py                      — CLI benchmark harness (engine vs engine / heuristics)
-index.html · script.js · style.css — "Neon Edition" web client: plays the neural net via in-browser
-                                     MCTS on the exported ONNX model (onnxruntime-web), plus
-                                     socket.io online versus
-server/                            — multiplayer relay server (Express + socket.io, Dockerfile)
-checkpoints/caro_v2_model_15x15.onnx — trained policy/value model (≈115 KB), loaded by the web client
+```bash
+python -m http.server 8000 --directory docs
 ```
 
-## Quickstart
+Open <http://localhost:8000>. This serves the same Pages build, including its single-file ONNX model.
+
+## Run the full self-hosted app
+
+The full server build retains **Online multiplayer** as well as 1-vs-1 and VS AI. Requires Node.js 20+ and npm:
+
+```bash
+cd server
+npm install
+npm start
+```
+
+Open <http://localhost:8080>. To build and run with Docker, from the repository root:
+
+```bash
+docker compose -f server/docker-compose.yml up --build -d
+```
+
+The server assets and self-host configuration remain separate from the Pages-only bundle in `docs/`.
+
+## Project overview
+
+- **Network:** fully-convolutional SE-ResNet policy-value model.
+- **Search:** vectorized MCTS with PUCT and soft tactical priors.
+- **Training:** self-play, opponent pool, checkpoint resume, and ONNX export.
+- **Demo:** 15×15 Caro board; ONNX Runtime Web runs the AI in the browser.
+- **Multiplayer:** Express + Socket.IO in the self-hosted server only.
+
+## Repository layout
+
+```text
+notebooks/Caro.ipynb       Training and self-play pipeline
+bench_game.py              Benchmark helper
+index.html, script.js,
+style.css                  Full self-hosted browser app
+checkpoints/               ONNX model for browser inference
+server/                    Express + Socket.IO server and Docker setup
+docs/                      Static GitHub Pages demo (online mode disabled)
+```
+
+## Reproduce training
 
 ```bash
 pip install -r requirements.txt
-jupyter lab notebooks/Caro.ipynb   # reproduce the training pipeline
-python bench_game.py --help        # run benchmark games
-
-# play against the AI in the browser
-python -m http.server 8000         # open http://localhost:8000
-
-# online multiplayer
-cd server && npm install && node server.js
-# or: docker compose up
+jupyter lab notebooks/Caro.ipynb
 ```
 
-## Notes
+Training runs require a suitable PyTorch environment and any dataset/checkpoints referenced in the notebook. No training metric is claimed here as a reproducible benchmark.
 
-- The notebook is the single source of truth for the pipeline (research-project style); config cells switch between local and Colab paths.
-- Checkpoints/weights are not committed (too large); retrain from scratch in ~a Colab session or reuse the architecture for your own runs.
-- Vietnamese Caro rules (15×15, `hậu`/forbid rules per local play conventions) are implemented in the environment module inside the notebook.
+## License and data
+
+No project license is included. Check third-party code, dependency, model, and dataset terms before reuse or redistribution. Do not publish data you are not authorized to share.
